@@ -3,7 +3,7 @@ import CancelToken from './cancelToken'
 import InterceptorManager from './interceptorManager'
 import RequestQueue from './queue'
 import { requestProxy } from './proxy'
-import { isNotEmptyArray, isNotEmptyObject, transformReq } from './util'
+import { isNotEmptyArray, isNotEmptyObject, transformReq, isThenable } from './util'
 import {
   normalized,
   proxyUrl,
@@ -22,7 +22,6 @@ export default class XFetch {
       this.requestAdapter = (config) => requestAdapter(config, MPX)
     }
     if (options && options.proxy) this.setProxy(options.proxy)
-    if (options && options.isMock && options.proxyConfig && options.proxyConfig.proxy)  this.mock(options.proxyConfig)
     this.interceptors = {
       request: new InterceptorManager(),
       response: new InterceptorManager()
@@ -162,7 +161,10 @@ export default class XFetch {
       // 6. 对于类POST请求将config.emulateJSON实现为config.header['content-type'] = 'application/x-www-form-urlencoded'
       // 后续请求处理都应基于正规化后的config进行处理(proxy/mock/validate/serialize)
       XFetch.normalizeConfig(config)
-      config = this.checkProxy(config) // proxy
+      if ( this.proxyOptions ) {
+        config = this.checkProxy(config) // proxy
+        if ( isThenable(config) ) return config
+      }
       return this.queue ? this.queue.request(config, priority) : this.requestAdapter(config)
     }
 

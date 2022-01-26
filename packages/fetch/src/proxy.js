@@ -1,5 +1,6 @@
 import { match } from 'path-to-regexp'
 import { isArray, isFunction, isNotEmptyArray, isNotEmptyObject, isString, parseUrl, deepMerge } from './util'
+import mock from 'mockjs'
 
 /**
  * 匹配项所有属性值，在源对象都能找到匹配
@@ -180,7 +181,6 @@ function doProxy (config, proxy, matchParams) {
     const likeGet = /^GET|DELETE|HEAD$/i.test(method)
     const finalData = deepMerge(likeGet ? params : data, pData)
     const finalMethod = pMethod || method
-
     finalConfig = {
       url: finalUrl,
       header: finalHeader,
@@ -194,22 +194,25 @@ function doProxy (config, proxy, matchParams) {
 }
 
 // 请求拦截
-export function requestProxy (options, config) {
+export function requestProxy (options = [], config) {
   const configBackup = Object.assign({}, config) // 备份请求配置
 
   let newConfig = config
-
-  options && options.some((item) => {
+  
+  for (let item of options) {
     const { test, proxy, waterfall } = item
     const { matched, matchParams } = doTest(configBackup, test)
     if ((isFunction(test.custom) && test.custom(configBackup)) || matched) {
+      // mock response
+      if (test.response && typeof(test.response) === 'function')  return Promise.resolve(test.response(mock))
       // 匹配时
       newConfig = doProxy(newConfig, proxy, matchParams)
 
       // waterfall 模式
-      return !waterfall
+      if (!waterfall) break
     }
-  })
+  }
 
+  
   return Object.assign({}, configBackup, newConfig)
 }
